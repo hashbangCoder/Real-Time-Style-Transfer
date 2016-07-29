@@ -6,33 +6,36 @@ require 'paths'
 require 'optim'
 local models = require 'models.lua'
 local lossUtils = require 'loss_net.lua'
-local utils = require 'preprocess.lua'
+local utils = require 'utils.lua'
 
 
-------------------- Input options ---------------------
+------------------- CommandLine options ---------------------
 cmd = torch.CmdLine()
 cmd:text()
 cmd:text('Real Time Neural Style Transfer in Torch')
 cmd:text()
 cmd:text('Options : ')
 
+cmd:option('-test','','Test Image path')
+
 cmd:option('-style','','Style Image')
-cmd:option('-dir','','Director for Feature Images')
+cmd:option('-dir','','Path to Content Images')
 cmd:option('-style_maps','4,9,16,22','Layer outputs for style')
 cmd:option('-content','9','Layer outputs for content')
-
-cmd:option('-gpu',0,'GPU ID')
-cmd:option('-res',true,'Flag to use residual model or not')
-cmd:option('-output','Output/','Save output to')
-cmd:option('-batch_size',2,'#Images per batch')
-cmd:option('-lr',1e-3,'Learning rate for optimizer')
 cmd:option('-style_param',10,'Hyperparameter for style emphasis')
 cmd:option('-feature_param',1,'Hyperparameter for feature emphasis')
 cmd:option('-tv_param',5e-4,'Hyperparameter for total variation regularization')
-cmd:option('-iter',40000,'Number of iteration to train')
-cmd:option('-beta',0.5,'Beta value for Adam optim')
-cmd:option('-pooling','avg','Pooling type for CNN  - "avg" or "max"')
 
+cmd:option('-iter',40000,'Number of iteration to train')
+cmd:option('-save_freq',5000,'How frequently to save output ')
+cmd:option('-output','Output/','Save output to')
+cmd:option('-batch_size',2,'#Images per batch')
+cmd:option('-lr',1e-3,'Learning rate for optimizer')
+cmd:option('-beta',0.5,'Beta value for Adam optim')
+
+cmd:option('-gpu',0,'GPU ID')
+cmd:option('-res',true,'Flag to use residual model or not')
+cmd:option('-pooling','avg','Pooling type for CNN  - "avg" or "max"')
 cmd:option('-im_format','jpg','Image format - jpg|png')
 
 cmd:option('-debug',false,'Turn debugger on/off')
@@ -61,7 +64,8 @@ else
 end
 
 -- Load models and convert to cuda()
-lossNet = models.load_vgg(backend)
+local pooltype = true and (opt.pooling == 'avg') or false
+lossNet = models.load_vgg(backend,pooltype)
 transformNet  = model.transform_net(opt.res)
 if opt.gpu > 0 then
 	transformNet = cudnn.convert(transformNet,cudnn)
@@ -79,6 +83,7 @@ end
 
 
 local loadIm = image.loadJPG and (opt.im_format == 'jpg') or image.loadPNG
+local saveIm = image.saveJPG and (opt.im_format == 'jpg') or image.savePNG
 local styleIm = utils.pp(loadIm(opt.style)):cuda()
 local content_layers = opt.content_maps:split(',')
 assert(#content_layers == 1,'More than one content activation layers received')
@@ -107,7 +112,6 @@ local styleMap = getStyleMap()
 
 ----------------------------------- start training ------------------------------------------
 for i=1,opt.iter,opt.batch_size do
-	
 	local k = i%#imageFiles 
 	local mini_batch = {}
 	for j = k,k+opt.batch_size do
@@ -115,7 +119,9 @@ for i=1,opt.iter,opt.batch_size do
 		local inputIm = utils.pp(loadIm(paths.concat(opt.dir),imageFiles[shuffleInd[j]])):cuda()
 		table.insert(mini_batch,inputIm)
 	end
-
+	if i%opt.save_freq == 0 then
+		utils.saveImage(i)
+	end
 end
 ----------------------------------------------------------------------------------------------
 
@@ -146,15 +152,12 @@ local function feval(mini_batch)
 			loss = loss + sLoss
 			grad:add(sGrad)
 		end
-
 		transform_net:backward(loss,grad)
 	end
 	loss = loss/#mini_batch
 	grad = grad:div(#mini_batch)
 	return loss,grad
-
 end
-
 
 
 

@@ -4,11 +4,27 @@ local nn = require 'nn'
 require 'loadcaffe'
 
 -- Load pretrained 16-layer VGG model and freeze layers
-function load_vgg(backend)
+function load_vgg(backend,avg_pool)
 	local model =  loadcaffe.load('VGG/VGG_ILSVRC_16_layers_deploy.prototxt','VGG/VGG_ILSVRC_16_layers.caffemodel',backend)
+	for i=22,#model do
+		model:remove()
+	end
+	assert(model:get(#model).name == 'relu4_2','VGG Model is loaded incorrectly')
 	for i=1,#model do
 		model:get(i).accGradParameters = function() end
 	end
+	-- Change to average pooling option
+	if avg_pool then
+		local poolBackend = 'cudnn.SpatialMaxPooling' and (backend == 'cudnn') or 'nn.SpatialMaxPooling'
+		local bknd = require(backend)
+		model:replace(function(module)
+			if torch.typename(module) == poolBackend then
+				return bknd.SpatialAveragePooling(module.kW,module.kH,module.dW,module.dW)
+			else return module
+			end
+		end)
+	end
+
 	return model
 end
 
