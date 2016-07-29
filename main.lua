@@ -4,6 +4,7 @@ require 'cutorch'
 require 'cunn'
 require 'paths'
 require 'optim'
+require 'xlua'
 local models = require 'models.lua'
 local lossUtils = require 'loss_net.lua'
 local utils = require 'utils.lua'
@@ -16,36 +17,36 @@ cmd:text('Real Time Neural Style Transfer in Torch')
 cmd:text()
 cmd:text('Options : ')
 
-cmd:option('-test','','Test Image path')
+cmd:option('-test','test_image.jpg','Test Image path')
 
 cmd:option('-style','','Style Image')
-cmd:option('-dir','','Path to Content Images')
+cmd:option('-dir','Data/train2014/','Path to Content Images')
 cmd:option('-style_maps','4,9,16,22','Layer outputs for style')
 cmd:option('-content','9','Layer outputs for content')
 cmd:option('-style_param',10,'Hyperparameter for style emphasis')
 cmd:option('-feature_param',1,'Hyperparameter for feature emphasis')
 cmd:option('-tv_param',5e-4,'Hyperparameter for total variation regularization')
 
-cmd:option('-iter',40000,'Number of iteration to train')
+cmd:option('-iter',12,'Number of iteration to train')
 cmd:option('-save_freq',5000,'How frequently to save output ')
 cmd:option('-output','Output/','Save output to')
-cmd:option('-batch_size',2,'#Images per batch')
+cmd:option('-batch_size',4,'#Images per batch')
 cmd:option('-lr',1e-3,'Learning rate for optimizer')
 cmd:option('-beta',0.5,'Beta value for Adam optim')
 
 cmd:option('-gpu',0,'GPU ID')
-cmd:option('-res',true,'Flag to use residual model or not')
+cmd:option('-res',true,'Flag to use residual model or not. Residual architecture converges faster!')
 cmd:option('-pooling','avg','Pooling type for CNN  - "avg" or "max"')
 cmd:option('-im_format','jpg','Image format - jpg|png')
 
 cmd:option('-debug',false,'Turn debugger on/off')
-cmd:option('-log','','File to log results')
+cmd:option('-log','Logs/','File to log results')
 -----------------------------------------------------------------------------------
 
 
 cmd:text()
 local opt = cmd:parse(arga)
-
+cmd:log(opt.log .. 'main.log',opt)
 --if opt.debug then
 --	local system = require 'sys'
 --	system.execute('export $') 
@@ -90,8 +91,8 @@ assert(#content_layers == 1,'More than one content activation layers received')
 local style_layers = opt.style_maps:split(',')
 local shuffleInd = torch.randperm(#imageFiles)
 
-logger = optim.Logger(opt.log)
-logger:setNames('Train Loss','Test Loss')
+local logger = optim.Logger(opt.log .. 'train.log')
+trainLogger:setNames{'Train Loss'}
 local optimState = {
 		learningRate = opt.lr,
 		beta1 = opt.beta,
@@ -119,6 +120,7 @@ for i=1,opt.iter,opt.batch_size do
 		local inputIm = utils.pp(loadIm(paths.concat(opt.dir),imageFiles[shuffleInd[j]])):cuda()
 		table.insert(mini_batch,inputIm)
 	end
+	xlua.progress(i,#imageFiles)
 	if i%opt.save_freq == 0 then
 		utils.saveImage(i)
 	end
@@ -156,6 +158,7 @@ local function feval(mini_batch)
 	end
 	loss = loss/#mini_batch
 	grad = grad:div(#mini_batch)
+	logger:add{loss}
 	return loss,grad
 end
 
