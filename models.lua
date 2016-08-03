@@ -1,21 +1,21 @@
 -- Residual block code snippet from fb.resnet.torch on github.
-
+local models = {}
 local nn = require 'nn'
-require 'loadcaffe'
+local loadcaffe = require 'loadcaffe'
 
 -- Load pretrained 16-layer VGG model and freeze layers
-function load_vgg(backend,avg_pool)
+function models.load_vgg(backend,avg_pool)
 	local model =  loadcaffe.load('VGG/VGG_ILSVRC_16_layers_deploy.prototxt','VGG/VGG_ILSVRC_16_layers.caffemodel',backend)
-	for i=22,#model do
+	for i=23,#model do
 		model:remove()
 	end
-	assert(model:get(#model).name == 'relu4_2','VGG Model is loaded incorrectly')
+	--assert(model:get(#model).name == 'relu4_2','VGG Model is loaded incorrectly')
 	for i=1,#model do
 		model:get(i).accGradParameters = function() end
 	end
 	-- Change to average pooling option
 	if avg_pool then
-		local poolBackend = 'cudnn.SpatialMaxPooling' and (backend == 'cudnn') or 'nn.SpatialMaxPooling'
+		local poolBackend = (backend == 'cudnn') and 'cudnn.SpatialMaxPooling' or 'nn.SpatialMaxPooling'
 		local bknd = require(backend)
 		model:replace(function(module)
 			if torch.typename(module) == poolBackend then
@@ -62,7 +62,7 @@ end
 
 
 -- Build the image transformation network with or without residual
-function transform_net(res_flag)
+function models.transform_net(res_flag)
 	local model = nn.Sequential()
 	model:add(nn.SpatialConvolution(3,32,9,9,1,1,4,4))
 	model:add(nn.SpatialBatchNormalization(32))
@@ -97,4 +97,4 @@ function transform_net(res_flag)
 	return model
 end
 
-
+return models

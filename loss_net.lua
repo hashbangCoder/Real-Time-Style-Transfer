@@ -1,9 +1,9 @@
--- A lot of file's code is borrowed from jcjhonson/neural_style.lua and kaishengtai/neuralart
-
+-- file's code mix of and borrowed from jcjhonson/neural_style.lua and kaishengtai/neuralart
+local lossUtils = {} 
 require 'loadcaffe'
 
 
-function gramMatrix()
+local function gramMatrix(gpu)
 	local net = nn.Sequential()
 	net:add(nn.View(-1):setNumInputDims(2))
 	local concat = nn.ConcatTable()
@@ -11,25 +11,27 @@ function gramMatrix()
 	concat:add(nn.Identity())
 	net:add(concat)
 	net:add(nn.MM(false, true))
+	net = (gpu>=0) and net:cuda() or net
 	return net
 end
 
 
-function tvLoss(input)
-	local x_diff = gen[{{}, {}, {1, -2}, {1, -2}}] - gen[{{}, {}, {1, -2}, {2, -1}}]
-	local y_diff = gen[{{}, {}, {1, -2}, {1, -2}}] - gen[{{}, {}, {2, -1}, {1, -2}}]
-	local grad = gen.new():resize(gen:size()):zero()
+function lossUtils.tvLoss(input,tvFactor)
+	local x_diff = input[{{}, {}, {1, -2}, {1, -2}}] - input[{{}, {}, {1, -2}, {2, -1}}]
+	local y_diff = input[{{}, {}, {1, -2}, {1, -2}}] - input[{{}, {}, {2, -1}, {1, -2}}]
+	local grad = input.new():resize(input:size()):zero()
     grad[{{}, {}, {1, -2}, {1, -2}}]:add(x_diff):add(y_diff)
     grad[{{}, {}, {1, -2}, {2, -1}}]:add(-1, x_diff)
     grad[{{}, {}, {2, -1} ,{1, -2}}]:add(-1, y_diff)
-	return grad
+	return grad:mul(tvFactor)
 end
 
 
-function styleLoss(input,styleMap,sFactor,normFlag)
-	local styleGram = gramMatrix(stylemap)
-	local crit = nn.MSECriterion()
-	local imageGram = gramMatrix(input)
+function lossUtils.styleLoss(input,styleMap,sFactor,normFlag,gpu)
+	local gramNet = gramMatrix(gpu)
+	local styleGram = gramNet:forward(styleMap)
+	local crit = (gpu>=0) and nn.MSECriterion():cuda() or nn.MSECriterion()
+	local imageGram = gramNet:forward(input)
 	local loss = crit:forward(imageGram:view(-1),styleGram:view(-1))
 	local grad = crit:backward(imageGram:view(-1),styleGram:view(-1)):view(#imageGram)
 	if normFlag then
@@ -37,31 +39,24 @@ function styleLoss(input,styleMap,sFactor,normFlag)
 		grad:div(norm)
 		loss = loss/norm
 	end
-	grad = torch.mm(grad, input:view(k, -1)):view(input:size())
-	return loss*sFactor, grad
+	grad = torch.mm(grad, input:view(input:size(2), -1)):view(input:size())
+	--print('@@@',#input,#styleMap,'@@')
+	return loss*sFactor, grad:mul(sFactor)
 end
 
 
-function contentLoss(input,contentMap,cFactor,normFlag)
-	local crit = nn.MSECriterion()
+function lossUtils.contentLoss(input,contentMap,cFactor,normFlag,gpu)
+	local crit = (gpu>=0) and nn.MSECriterion():cuda() or nn.MSECriterion()
 	local loss =  crit:forward(input,contentMap)
+--	print(torch.type(input),torch.type(contentMap),loss)
 	local grad = crit:backward(input,contentMap):view(#input)
 	if normFlag then
 		local norm = input:nElement()^2
 		loss = loss/norm
 		grad = grad:div(norm)
 	end
-	return loss*cFactor, grad
+	return loss*cFactor, grad:mul(cFactor)
 
-end
-
-function load_vgg(backend)
-	local model =  loadcaffe.load('VGG/VGG_ILSVRC_16_layers_deploy.prototxt','VGG/VGG_ILSVRC_16_layers.caffemodel',backend)
-	for i=1,#model do
-		-- TODO : Add functionality for avg. pooling
-		model:get(i).accGradParameters = function() end
-	end
-	return model
 end
 
 
@@ -132,7 +127,7 @@ end
 --	opV = torch.conv2(modelOp,filtV,'V'):pow(2):sum()
 --	opH = torch.conv2(modelOp,filtH,'V'):pow(2):sum()
 --	return (opV + opH)^(beta/2)
---
+return lossUtils
 
 
 
