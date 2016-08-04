@@ -1,7 +1,7 @@
 -- file's code mix of and borrowed from jcjhonson/neural_style.lua and kaishengtai/neuralart
 local lossUtils = {} 
 require 'loadcaffe'
-
+local os = require 'os'
 
 local function gramMatrix(gpu)
 	local net = nn.Sequential()
@@ -11,7 +11,7 @@ local function gramMatrix(gpu)
 	concat:add(nn.Identity())
 	net:add(concat)
 	net:add(nn.MM(false, true))
-	net = (gpu>=0) and net:cuda() or net
+	net = (gpu>=0) and cudnn.convert(net,cudnn):cuda() or net
 	return net
 end
 
@@ -28,7 +28,16 @@ end
 
 
 function lossUtils.styleLoss(input,styleMap,sFactor,normFlag,gpu)
-	local gramNet = gramMatrix(gpu)
+	local gramNet = nn.Sequential()
+	gramNet:add(nn.View(-1):setNumInputDims(2))
+	local concat = nn.ConcatTable()
+    concat:add(nn.Identity())
+	concat:add(nn.Identity())
+	gramNet:add(concat)
+	gramNet:add(nn.MM(false, true))
+	gramNet = (gpu>=0) and cudnn.convert(gramNet,cudnn):cuda() or gramNet
+
+	--local gramNet = gramMatrix(gpu)
 	local styleGram = gramNet:forward(styleMap)
 	local crit = (gpu>=0) and nn.MSECriterion():cuda() or nn.MSECriterion()
 	local imageGram = gramNet:forward(input)
@@ -40,7 +49,6 @@ function lossUtils.styleLoss(input,styleMap,sFactor,normFlag,gpu)
 		loss = loss/norm
 	end
 	grad = torch.mm(grad, input:view(input:size(2), -1)):view(input:size())
-	--print('@@@',#input,#styleMap,'@@')
 	return loss*sFactor, grad:mul(sFactor)
 end
 
