@@ -38,13 +38,13 @@ function lossUtils.styleLoss(input,styleMap,sFactor,normFlag,gpu)
 	gramNet = (gpu>=0) and cudnn.convert(gramNet,cudnn):cuda() or gramNet
 
 	--local gramNet = gramMatrix(gpu)
-	local styleGram = gramNet:forward(styleMap)
+	local styleGram = gramNet:forward(styleMap):clone()
 	local crit = (gpu>=0) and nn.MSECriterion():cuda() or nn.MSECriterion()
 	local imageGram = gramNet:forward(input)
 	local loss = crit:forward(imageGram:view(-1),styleGram:view(-1))
 	local grad = crit:backward(imageGram:view(-1),styleGram:view(-1)):view(#imageGram)
 	if normFlag then
-		local norm = input:nElement()^2
+		local norm = torch.norm(grad,1) + 1e-7
 		grad:div(norm)
 		loss = loss/norm
 	end
@@ -59,7 +59,7 @@ function lossUtils.contentLoss(input,contentMap,cFactor,normFlag,gpu)
 --	print(torch.type(input),torch.type(contentMap),loss)
 	local grad = crit:backward(input,contentMap):view(#input)
 	if normFlag then
-		local norm = input:nElement()^2
+		local norm = torch.norm(grad,1) + 1e-7
 		loss = loss/norm
 		grad = grad:div(norm)
 	end

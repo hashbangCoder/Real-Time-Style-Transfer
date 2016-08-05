@@ -10,7 +10,7 @@ models = require 'models.lua'
 local lossUtils = require 'loss_net.lua'
 local utils = require 'utils.lua'
 local os = require('os')
-
+local sys = require('sys')
 ------------------- CommandLine options ---------------------
 cmd = torch.CmdLine()
 cmd:text()
@@ -23,13 +23,13 @@ cmd:option('-test','test_image.jpg','Test Image path')
 cmd:option('-style','','Style Image')
 cmd:option('-dir','Data/train2014/','Path to Content Images')
 cmd:option('-style_maps','4,9,16,21','Layer outputs for style')
-cmd:option('-content_maps','9','Layer outputs for content')
+cmd:option('-content_maps','16','Layer outputs for content')
 cmd:option('-style_param',10,'Hyperparameter for style emphasis')
 cmd:option('-feature_param',1,'Hyperparameter for feature emphasis')
-cmd:option('-tv_param',5e-4,'Hyperparameter for total variation regularization')
+cmd:option('-tv_param',10e-4,'Hyperparameter for total variation regularization')
 
 cmd:option('-iter',80000,'Number of iteration to train')
-cmd:option('-batch_size',10,'#Images per batch')
+cmd:option('-batch_size',2,'#Images per batch')
 cmd:option('-save_freq',5000,'How frequently to save output ')
 cmd:option('-saved_params','transformNet.t7','Save output to')
 cmd:option('-output','Output/','Save output to')
@@ -37,7 +37,7 @@ cmd:option('-output','Output/','Save output to')
 cmd:option('-lr',1e-3,'Learning rate for optimizer')
 cmd:option('-beta',0.5,'Beta value for Adam optim')
 
-cmd:option('-gpu',0,'GPU ID')
+cmd:option('-gpu',2,'GPU ID, -1 for CPU (not fully supported now)')
 cmd:option('-res',true,'Flag to use residual model or not. Residual architecture converges faster!')
 cmd:option('-pooling','avg','Pooling type for CNN  - "avg" or "max"')
 cmd:option('-im_format','jpg','Image format - jpg|png')
@@ -103,7 +103,7 @@ end
 local shuffleInd = torch.randperm(#imageFiles)
 
 local logger = optim.Logger(opt.log .. 'trainloss.log')
-logger:setNames{'Train Loss'}
+logger:setNames{'Train Loss(returned)'}
 local optimState = {
 		learningRate = opt.lr,
 		beta1 = opt.beta,
@@ -122,7 +122,7 @@ local function saveImage(iter)
 end
 
 --Get style Loss 
-
+styleIm = styleIm - 120
 lossNet:forward(styleIm)
 local styleMap = {}
 for i,_ in pairs(style_outs) do
@@ -134,7 +134,7 @@ for i=1,opt.iter,opt.batch_size do
 	local k = i%#imageFiles 
 	local mini_batch = {}
 	xlua.progress(i,opt.iter)
-	for j = k,k+opt.batch_size do
+	for j = k,k+opt.batch_size-1 do
 		-- Get content image from mini-batch
 		--print('IMPATH : '..paths.concat(opt.dir,imageFiles[shuffleInd[j]]))
 		local inputIm = utils.pp(loadIm(paths.concat(opt.dir,imageFiles[shuffleInd[j]]))):cuda()
@@ -149,13 +149,13 @@ for i=1,opt.iter,opt.batch_size do
 		local loss = 0
 		local gradOut = (opt.gpu >= 0) and torch.CudaTensor():resize(#lossNet.output):zero() or torch.Tensor():resize(#lossNet.output):zero()
 		for m=1,#mini_batch do 
-			local inputIm = mini_batch[m]
+			local inputIm = mini_batch[m] - 120
 			--Forward content image through VGG and get contentMap
 			lossNet:forward(inputIm)
 			local contentMap = lossNet:get(tonumber(unpack(content_layers))).output:clone()
 
 			--Forward same content through tarnsformnet and get output image style and contentmaps
-			local outputIm = transformNet:forward(inputIm)	
+			local outputIm = transformNet:forward(inputIm)	- 120
 			--print('percent eq : ',torch.eq(inputIm,outputIm):sum()/inputIm:nElement())
 			lossNet:forward(outputIm)
 			local outputStyleMap = {}
@@ -164,7 +164,6 @@ for i=1,opt.iter,opt.batch_size do
 			end
 			assert(#outputStyleMap == #styleMap,'Unequal # style layer-outputs of InputImage and styleImagel')
 			local outputContentMap = lossNet:get(tonumber(unpack(content_layers))).output
-															
 			-- Backpass inspired by kaishengtai/neuralart
 			for z = #lossNet.modules, 1, -1 do
 				local mod_inp = (z== 1) and outputIm or lossNet.modules[z - 1].output
@@ -172,35 +171,42 @@ for i=1,opt.iter,opt.batch_size do
 				if content_outs[z] == true then
 					local cLoss,cGrad = lossUtils.contentLoss(outputContentMap,contentMap,opt.feature_param,false,opt.gpu)
 					loss = loss + cLoss
+					--print('Content loss :',loss)
 					gradOut:add(cGrad)
 				end
 				if style_outs[z] == true  then
 					local sLoss,sGrad = lossUtils.styleLoss(outputStyleMap[z],styleMap[z],opt.style_param,false,opt.gpu)
 					loss = loss+sLoss
-					--print('---',#gradOut,#sGrad,'---')
+					--print('Style loss : ',sLoss)
 					gradOut:add(sGrad)
 				end
 				gradOut = module:backward(mod_inp,gradOut)
 			end
 			local tvGrad = lossUtils.tvLoss(outputIm,opt.tv_param)
 			gradOut:add(tvGrad)
-			print(#gradOut,)
+			--print(#gradOut)
 			transformNet:backward(inputIm,gradOut)
 		end
 		loss = loss/#mini_batch
 		gradParameters:div(#mini_batch)
 		--gradOut = gradOut:div(#mini_batch)
-		logger:add{loss}
 		return loss,gradParameters
 	end
-
 	
-	optimMethod(feval,params)
+	local _,loss = optimMethod(feval,params,optimState)
+	logger:add{loss[1]}
+	if i%1000 < opt.batch_size and (i>opt.batch_size)then
+			print('Iter : '..tostring(i),'\tLoss :',loss)
+	end
+
 	if i%opt.save_freq < opt.batch_size and (i>opt.batch_size)then
 		saveImage(i)
 	end
 end
 ----------------------------------------------------------------------------------------------
 saveImage('end')
-torch.save(opt.output..'Styles/'..opt.saved_params,transformNet:clearState())
+
+torch.save(opt.output..'Styles/'..opt.saved_params..'_full',transformNet)
+transformNet = transformNet:clearState()
+torch.save(opt.output..'Styles/'..opt.saved_params,transformNet)
 
