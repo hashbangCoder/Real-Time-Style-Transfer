@@ -5,8 +5,9 @@ local loadcaffe = require 'loadcaffe'
 
 -- Load pretrained 16-layer VGG model and freeze layers
 function models.load_vgg(backend,avg_pool)
+	--local model =  loadcaffe.load('VGG/VGG_ILSVRC_19_layers_deploy.prototxt','VGG/vgg_normalised.caffemodel',backend)
 	local model =  loadcaffe.load('VGG/VGG_ILSVRC_16_layers_deploy.prototxt','VGG/VGG_ILSVRC_16_layers.caffemodel',backend)
-	for i=23,#model do
+	for i=26,#model do
 		model:remove()
 	end
 	--assert(model:get(#model).name == 'relu4_2','VGG Model is loaded incorrectly')
@@ -27,7 +28,6 @@ function models.load_vgg(backend,avg_pool)
 
 	return model
 end
-
 
 local function shortcut()
 	return nn.Identity()
