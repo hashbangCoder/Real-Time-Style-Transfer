@@ -23,18 +23,18 @@ cmd:option('-dir','Data/train2014/','Path to Content Images')
 --cmd:option('-style_maps','4,9,16,25','Layer outputs for style')
 cmd:option('-style_maps','4,9,16,23','Layer outputs for style')
 cmd:option('-content_maps','16','Layer outputs for content')
-cmd:option('-style_param',10,'Hyperparameter for style emphasis')
+cmd:option('-style_param',50,'Hyperparameter for style emphasis')
 cmd:option('-feature_param',1,'Hyperparameter for feature emphasis')
 cmd:option('-tv_param',5e-3,'Hyperparameter for total variation regularization')
 cmd:option('-size',256,'Size of output')
 
-cmd:option('-iter',160000,'Number of iteration to train')
+cmd:option('-iter',200000,'Number of iteration to train')
 cmd:option('-batch_size',4,'#Images per batch')
-cmd:option('-save_freq',10000,'How frequently to save output ')
+cmd:option('-save_freq',20000,'How frequently to save output ')
 cmd:option('-saved_params','transformNet.t7','Save output to')
 cmd:option('-output','Output/','Save output to')
 
-cmd:option('-lr',1e-2,'Learning rate for optimizer')
+cmd:option('-lr',1e-3,'Learning rate for optimizer')
 cmd:option('-beta',0.5,'Beta value for Adam optim')
 
 cmd:option('-gpu',1,'GPU ID, -1 for CPU (not fully supported now)')
@@ -71,9 +71,9 @@ local saveIm = (opt.im_format == 'jpg') and image.saveJPG  or image.savePNG
 if opt.style == '' or opt.content == '' then
 	error('No style/content image given')
 end
-local styleIm = utils.pp(utils.toBGR(utils.scale_pp(loadIm(opt.style),opt.size)))
+local styleIm = utils.pp(utils.scale_pp(loadIm(opt.style),opt.size))
 styleIm:resize(1,3,styleIm:size(2),styleIm:size(3))
-local testIm = utils.toBGR(utils.scale_pp(loadIm(opt.test),opt.size))
+local testIm = utils.scale_pp(loadIm(opt.test),opt.size)
 testIm:resize(1,3,testIm:size(2),testIm:size(3))
 
 
@@ -118,7 +118,7 @@ local optimMethod = optim.adam
 
 local function saveImage(iter)
 	local out = transformNet:forward(testIm)
-	saveIm(paths.concat(opt.output,'testOutIter'..tostring(iter)..'.'..opt.im_format),utils.dp(out:squeeze():double()))
+	saveIm(paths.concat(opt.output,'testOutIter'..tostring(iter)..'.'..opt.im_format),out:squeeze():double())
 	print ('Saving Test Image @ iter : '..tostring(iter))
 end
 
@@ -136,7 +136,7 @@ for i=1,opt.iter,opt.batch_size do
 	xlua.progress(i,opt.iter)
 	for j = k,k+opt.batch_size-1 do
 		-- Get content image from mini-batch
-		local inputIm = utils.toBGR(utils.scale_pp(loadIm(paths.concat(opt.dir,imageFiles[shuffleInd[j]])),opt.size))
+		local inputIm = utils.scale_pp(loadIm(paths.concat(opt.dir,imageFiles[shuffleInd[j]])),opt.size)
 		table.insert(mini_batch,inputIm)
 	end
 
@@ -195,12 +195,15 @@ for i=1,opt.iter,opt.batch_size do
 	
 	local _,loss = optimMethod(feval,params,optimState)
 	logger:add{loss[1]}
-	if i%100 < opt.batch_size and (i>opt.batch_size)then
-		print('Iter :'..tostring(i),'Loss :'..tostring(loss[1]))
+	if i%5000 < opt.batch_size and (i>opt.batch_size)then
+		print('Iter :'..tostring(i),'Loss :'..tostring(loss[1]), 'LR :',optimState.learningRate)
 	end
 	if i%opt.save_freq < opt.batch_size and (i>opt.batch_size)then
 		saveImage(i)
 	end
+	--if i%100000 < opt.batch_size and (i>opt.batch_size) then
+	--	optimState.learningRate  = optimState.learningRate/2
+	--end
 end
 ----------------------------------------------------------------------------------------------
 saveImage('end')

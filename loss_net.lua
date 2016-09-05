@@ -30,11 +30,11 @@ end
 function lossUtils.styleLoss(input,styleMap,sFactor,device)
 
 	local gramNet = gramMatrix(device)
-	local styleGram = gramNet:forward(styleMap):clone()
+	local styleGram = gramNet:forward(styleMap):div(styleMap:nElement()):clone()
 	local crit = (device>=0) and nn.MSECriterion():cuda() or nn.MSECriterion()
-	local imageGram = gramNet:forward(input)
+	local imageGram = gramNet:forward(input):div(input:nElement())
 	local loss = crit:forward(imageGram:view(-1),styleGram:view(-1))
-	local grad = crit:backward(imageGram:view(-1),styleGram:view(-1)):view(#imageGram)
+	local grad = crit:backward(imageGram:view(-1),styleGram:view(-1)):view(#imageGram):div(input:nElement()^2)
 	grad = torch.mm(grad, input:view(input:size(2), -1)):view(input:size())
 	return loss*sFactor, grad:mul(sFactor)
 end

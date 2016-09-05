@@ -2,7 +2,7 @@ local utils = {}
 local image = require 'image'
 
 function utils.pp(im)
-	-- Take in RGB return BGR type
+	-- Take in RGB and subtract means
 	-- If you're wondering what these floats are for, like I did, they're the mean pixel (Blue-Green-Red) for the pretrained VGG net in order to zero-center the input image.
 	local means = torch.DoubleTensor({-103.939, -116.779, -123.68})
 	--Convert RGB --> BGR and pixel range to 0-255
