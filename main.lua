@@ -23,12 +23,12 @@ cmd:option('-dir','Data/train2014/','Path to Content Images')
 --cmd:option('-style_maps','4,9,16,25','Layer outputs for style')
 cmd:option('-style_maps','4,9,16,23','Layer outputs for style')
 cmd:option('-content_maps','16','Layer outputs for content')
-cmd:option('-style_param',50,'Hyperparameter for style emphasis')
+cmd:option('-style_param',1e7,'Hyperparameter for style emphasis')
 cmd:option('-feature_param',1,'Hyperparameter for feature emphasis')
 cmd:option('-tv_param',5e-3,'Hyperparameter for total variation regularization')
 cmd:option('-size',256,'Size of output')
 
-cmd:option('-iter',200000,'Number of iteration to train')
+cmd:option('-iter',160000,'Number of iteration to train')
 cmd:option('-batch_size',4,'#Images per batch')
 cmd:option('-save_freq',20000,'How frequently to save output ')
 cmd:option('-saved_params','transformNet.t7','Save output to')
@@ -93,7 +93,6 @@ for file in paths.files(opt.dir) do
 		table.insert(imageFiles,paths.concat(opt.dir,file))
 	end
 end
---table.insert(imageFiles,paths.concat(opt.dir,'test_image.jpg'))
 --Content Layers
 local content_layers = opt.content_maps:split(',')
 local content_outs = {}
@@ -129,6 +128,7 @@ for i,_ in pairs(style_outs) do
 		styleMap[i] = lossNet:get(tonumber(i)).output:clone()
 end
 local params,gradParameters = transformNet:getParameters()
+
 ----------------------------------- start training ------------------------------------------
 for i=1,opt.iter,opt.batch_size do
 	local k = (i%(#imageFiles-opt.batch_size+1)==0) and 1 or i%(#imageFiles-opt.batch_size+1)
@@ -201,9 +201,9 @@ for i=1,opt.iter,opt.batch_size do
 	if i%opt.save_freq < opt.batch_size and (i>opt.batch_size)then
 		saveImage(i)
 	end
-	--if i%100000 < opt.batch_size and (i>opt.batch_size) then
-	--	optimState.learningRate  = optimState.learningRate/2
-	--end
+	if i%100000 < opt.batch_size and (i>opt.batch_size) then
+		optimState.learningRate  = optimState.learningRate/2
+	end
 end
 ----------------------------------------------------------------------------------------------
 saveImage('end')
