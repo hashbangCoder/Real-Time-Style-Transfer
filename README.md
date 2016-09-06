@@ -18,11 +18,22 @@ Trained on 256x256 resized images
 
 <img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/Stylizations/Stylize_test.jpg?raw=true" width="512" height="512">
 
+### How to Run
+
+#### To Train
+
+`th main.lua -style style_image.jpg -dir <path to training images>`
+
+####  To Stylize with trained model
+
+`th stylize.lua -test test_image.lua -model <path to trained model file> `
+
 
 ### What has been implemented
 - Only Style Transfer has been implemented so far
 - Updated code to reflect changes in the paper for removing border artifacts
 - Video version coming soon. Check out [this](https://www.youtube.com/watch?v=h0jH0bJIvcM&feature=youtu.be) example in Chainer
+
 
 
 ### Requirements
@@ -34,9 +45,11 @@ Unfortunately it is not fully CPU compatible yet and requires a GPU to run
 - cuDNN/CUDA
 
 
+
 ### Details
 - Trained on MS COCO TrainSet (~80,000 images) over two epochs on a NVIDIA TitanX gpu. Takes about ~6 hours
 - Model file is available `Output/Styles/transformNet.t7`
+
 
 
 
