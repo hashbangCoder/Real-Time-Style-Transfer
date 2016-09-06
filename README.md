@@ -25,7 +25,6 @@ Trained on 256x256 resized images
 - Video version coming soon. Check out [this](https://www.youtube.com/watch?v=h0jH0bJIvcM&feature=youtu.be) example in Chainer
 
 
-
 ### Requirements
 
 Unfortunately it is not fully CPU compatible yet and requires a GPU to run
@@ -41,7 +40,7 @@ Unfortunately it is not fully CPU compatible yet and requires a GPU to run
 
 
 
-This implementation reuses some code from :
+#### This implementation reuses some code from these excellent repos:
 - https://github.com/kaishengtai/neuralart
 - https://github.com/jcjohnson/neural-style
 
