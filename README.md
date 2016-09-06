@@ -32,6 +32,8 @@ Trained on 256x256 resized images
 ### What has been implemented
 - Only Style Transfer has been implemented so far
 - Updated code to reflect changes in the paper for removing border artifacts
+- Residual architecture and non-residual (flattened) architecture implemented
+- Average pooling and Max pooling options
 - Video version coming soon. Check out [this](https://www.youtube.com/watch?v=h0jH0bJIvcM&feature=youtu.be) example in Chainer
 
 
