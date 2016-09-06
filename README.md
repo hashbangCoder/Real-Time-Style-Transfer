@@ -8,12 +8,15 @@ Preliminary working example and output has been uploaded. I'll update soon with 
 
 Trained on 256x256 resized images
 
-Style Image - Content Image - Output (256x256) - Output (512x512)
+**Style Image** -- **Content Image** -- **Output (256x256) version** 
 
-<img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/style_image.jpg?raw=true" width="300" height="300">
-<img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/test_image.jpg?raw=true" width="300" height="300">
-<img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/Output_1/testOutIterend.jpg?raw=true" width="300" height="300">
-<img src= width="300" height="300">
+<img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/style_image.jpg?raw=true" width="256" height="256">
+<img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/test_image.jpg?raw=true" width="256" height="256">
+<img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/Output_1/testOutIterend.jpg?raw=true" width="256" height="256">
+
+**Output (512x512) version**
+
+<img src="https://github.com/hashbangCoder/Real-Time-Style-Transfer/blob/master/Stylizations/Stylize_test.jpg?raw=true" width="512" height="512">
 
 
 ### What has been implemented
@@ -33,7 +36,8 @@ Unfortunately it is not fully CPU compatible yet and requires a GPU to run
 
 
 ### Details
-Trained on MS COCO TrainSet (~80,000 images) over two epochs on a NVIDIA TitanX gpu. Takes about ~6 hours
+- Trained on MS COCO TrainSet (~80,000 images) over two epochs on a NVIDIA TitanX gpu. Takes about ~6 hours
+- Model file is available `Output/Styles/transformNet.t7`
 
 
 
