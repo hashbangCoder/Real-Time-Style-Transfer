@@ -41,7 +41,8 @@ Unfortunately it is not fully CPU compatible yet and requires a GPU to run
 
 
 
-
-
+This implementation reuses some code from :
+- https://github.com/kaishengtai/neuralart
+- https://github.com/jcjohnson/neural-style
 
 
